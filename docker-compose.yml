@@ -1,3 +1,4 @@
+# docker-compose.yml
 services:
   database:
     container_name: calcom-db
@@ -7,7 +8,6 @@ services:
       - cal_db_data:/var/lib/postgresql/data
     env_file: .env
     environment:
-      # Répétition minimale pour s'assurer que l'image PG les capte bien au 1er lancement
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -44,13 +44,31 @@ services:
   calcom:
     container_name: calcom-web
     image: calcom.docker.scarf.sh/calcom/cal.diy
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Les variables indispensables pour compiler le frontend Next.js
+        NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_WEBAPP_URL}
+        NEXT_PUBLIC_API_V2_URL: ${NEXT_PUBLIC_API_V2_URL}
+        NEXT_PUBLIC_LICENSE_CONSENT: ${NEXT_PUBLIC_LICENSE_CONSENT}
+        NEXT_PUBLIC_WEBSITE_TERMS_URL: ${NEXT_PUBLIC_WEBSITE_TERMS_URL}
+        NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL: ${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
+        NEXT_PUBLIC_SINGLE_ORG_SLUG: ${NEXT_PUBLIC_SINGLE_ORG_SLUG}
+        ORGANIZATIONS_ENABLED: ${ORGANIZATIONS_ENABLED}
+        CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED}
+        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+        CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
+        # Construction propre de l'URL pour pointer vers le conteneur DB
+        DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
+        DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
+        CSP_POLICY: ${CSP_POLICY}
     restart: always
     networks:
       - cal-internal
       - web-network
     env_file: .env
     environment:
-      # Surcharge stricte pour pointer vers le conteneur DB interne
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
     depends_on:
@@ -67,11 +85,12 @@ services:
 
   calcom-api:
     container_name: calcom-api
-    # Cal.com requiert souvent de builder l'API v2 localement depuis leur repo. 
-    # Le bloc build est conservé de façon minimaliste au cas où l'image pré-compilée ne suffise pas.
     build:
       context: .
       dockerfile: apps/api/v2/Dockerfile
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
+        DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
     restart: always
     networks:
       - cal-internal
@@ -79,7 +98,7 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
-      - API_PORT=8080 # On décale le port interne pour éviter tout conflit avec Caddy
+      - API_PORT=8080
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
       - DATABASE_READ_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
       - DATABASE_WRITE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
@@ -100,9 +119,9 @@ services:
 
 networks:
   cal-internal:
-    driver: bridge # Isolateur réseau pour Redis et Postgres
+    driver: bridge
   web-network:
-    external: true # Connecté au Caddy Global
+    external: true
 
 volumes:
   cal_db_data:
