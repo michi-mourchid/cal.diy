@@ -104,6 +104,7 @@ services:
       - DATABASE_WRITE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
       - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@calcom-db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://calcom-redis:6379
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - database
       - redis
